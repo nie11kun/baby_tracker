@@ -5,9 +5,9 @@ After=network.target
 [Service]
 User=www-data
 Group=www-data
-WorkingDirectory=/var/www/baby_tracker
-Environment="PATH=/var/www/baby_tracker/venv/bin"
-ExecStart=/var/www/baby_tracker/venv/bin/gunicorn --workers 4 --bind 127.0.0.1:5000 server:app
+WorkingDirectory=/home/www/baby_tracker
+Environment="PATH=/home/www/baby_tracker/venv/bin"
+ExecStart=/home/www/baby_tracker/venv/bin/gunicorn --workers 4 --bind 127.0.0.1:5000 server:app
 Restart=always
 
 [Install]
