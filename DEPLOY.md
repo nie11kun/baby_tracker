@@ -88,7 +88,7 @@ pip install -r requirements.txt
    sudo ln -s /etc/nginx/sites-available/baby_tracker /etc/nginx/sites-enabled/
    ```
 
-3. 编辑该 Nginx 配置文件，将默认的 `server_name babytracker.local;` 替换为您实际拥同的域名或 VPS 的公网 IP 地址：
+3. 编辑该 Nginx 配置文件，将默认的 `server_name yourdomain.com;` 替换为您实际的域名或 VPS 的公网 IP 地址：
 
    ```bash
    sudo nano /etc/nginx/sites-available/baby_tracker
