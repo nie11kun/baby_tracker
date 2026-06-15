@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <meta name="HandheldFriendly" content="true">
+    <meta name="MobileOptimized" content="width">
+    <title>宝宝智能中控面板</title>
+    <style>
+        /* 极致黑白高对比度 E-Ink 终极分离版 (使用 px 绝对单位确保老旧 Kindle PW 浏览器 100% 兼容放大) */
+        * {
+            box-sizing: border-box;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: manipulation; /* 默认允许移动端平滑滚动和滑动，但禁用双击缩放 */
+        }
+        
+        /* 仅在 Kindle 设备上应用最严厉的触控阻断以防底层硬件/系统级强制双击缩放 */
+        body.is-kindle-device * {
+            touch-action: none !important;
+        }
+        body.is-kindle-device .screen {
+            touch-action: pan-y !important; /* Kindle 上依然允许特定区域垂直滚动 */
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            color: #000000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            font-size: 40px; /* 提升基准字号 */
+            overflow: hidden; /* 绝对禁止滚动 */
+            -webkit-text-size-adjust: none; /* 阻止 WebKit 自动调整文本大小 */
+        }
+        
+        /* 全屏卡片容器 */
+        .screen {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 30px; /* 增加内边距 */
+            background-color: #ffffff;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y; /* 仅允许垂直滑动滚动列表 */
+        }
+        .screen.active {
+            display: block;
+        }
+        
+        /* 8px 实体粗黑框物理质感按键 */
+        .mech-btn {
+            -webkit-appearance: none;
+            appearance: none;
+            -webkit-border-radius: 0;
+            border-radius: 0;
+            box-sizing: border-box;
+            border: 8px solid #000000;
+            background: #ffffff;
+            color: #000000;
+            font-weight: bold;
+            text-align: center;
+            cursor: pointer;
+            outline: none;
+            padding: 0;
+            margin: 0;
+            display: inline-block;
+        }
+        
+        /* 主控制面板上半区 */
+        .home-container {
+            width: 100%;
+            position: relative;
+        }
+        
+        /* 页头：高度 90px，大字加粗，底边粗黑线 */
+        .home-header {
+            height: 90px;
+            border-bottom: 8px solid #000000;
+            font-weight: bold;
+            font-size: 44px;
+            line-height: 80px;
+            overflow: hidden;
+        }
+        .header-left {
+            float: left;
+        }
+        .header-right {
+            float: right;
+            font-family: monospace;
+        }
+        
+        /* 记录人快速切换栏：高度 110px */
+        .operator-row {
+            height: 110px;
+            margin-top: 30px;
+            overflow: hidden;
+        }
+        .op-label {
+            float: left;
+            font-weight: bold;
+            line-height: 90px;
+            width: 170px;
+            font-size: 38px;
+        }
+        .op-buttons {
+            margin-left: 170px;
+        }
+        .op-btn {
+            display: inline-block;
+            height: 90px;
+            line-height: 75px;
+            padding: 0 30px;
+            font-size: 38px;
+            margin-right: 15px;
+            border-width: 6px;
+        }
+        .op-btn.active {
+            background: #000000 !important;
+            color: #ffffff !important;
+        }
+        
+        /* 2x2 主页按钮网格：高度 650px */
+        .home-grid {
+            height: 650px;
+            overflow: hidden;
+            margin-top: 30px;
+        }
+        .grid-cell {
+            float: left;
+            width: 47%;
+            margin: 1.5%;
+            height: 290px; /* 强制 290px 巨型高度 */
+            font-size: 56px; /* 强制大字号 */
+            line-height: 270px; /* 文字垂直居中 */
+            border-width: 8px;
+        }
+        
+        /* 主页底部切换到历史页的巨无霸按钮：高度 180px */
+        .btn-toggle-history {
+            width: 97%;
+            height: 180px;
+            font-size: 52px;
+            line-height: 160px;
+            border: 8px solid #000000;
+            margin: 35px auto 0 auto;
+            display: block;
+        }
+        
+        /* 子选择卡片通用标题：90px */
+        .screen-title {
+            font-size: 55px;
+            font-weight: bold;
+            border-left: 15px solid #000000;
+            padding-left: 20px;
+            margin-bottom: 40px;
+            height: 90px;
+            line-height: 80px;
+        }
+        
+        /* 子选择按钮网格：限制高度确保不溢出 */
+        .sub-selection-grid {
+            height: 750px;
+            overflow: hidden;
+        }
+        /* 2列选项按钮：强制高 200px */
+        .btn-choice-2col {
+            float: left;
+            width: 46%;
+            margin: 2%;
+            height: 200px;
+            font-size: 45px;
+            line-height: 185px; /* 保证文字居中适应大框 */
+            border-width: 7px;
+        }
+        /* 1列大选项按钮：强制高 160px */
+        .btn-choice-1col {
+            display: block;
+            width: 96%;
+            margin: 20px auto;
+            height: 160px;
+            font-size: 45px;
+            line-height: 145px;
+            border-width: 7px;
+        }
+        
+        /* 底部巨型返回按钮：强制高 150px */
+        .btn-bottom-back {
+            display: block;
+            width: 96%;
+            margin: 40px auto 20px auto;
+            height: 150px;
+            font-size: 45px;
+            line-height: 135px;
+            border-width: 7px;
+        }
+        
+        /* 体重微调 */
+        .weight-display {
+            font-size: 80px;
+            font-weight: bold;
+            text-align: center;
+            border: 8px solid #000000;
+            background-color: #f0f0f0;
+            padding: 10px;
+            margin-bottom: 30px;
+            height: 180px;
+            line-height: 160px;
+        }
+        .weight-adjusters {
+            height: 300px;
+            overflow: hidden;
+        }
+        .weight-adj-btn {
+            float: left;
+            width: 22%;
+            margin: 1.5%;
+            height: 180px;
+            font-size: 45px;
+            line-height: 165px;
+            border-width: 7px;
+        }
+        
+        /* 历史记录界面 */
+        .history-list {
+            height: 650px; /* 容纳 6 条高度优化后的记录，避免超出 Kindle PW3 视口 */
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .history-row {
+            height: 100px; /* 降至 100px，配合 34px 字号在 E-ink 下依然是大字且触控友好 */
+            line-height: 85px;
+            border: 5px solid #000000;
+            margin-bottom: 8px;
+            padding: 0 15px;
+            font-size: 34px;
+            font-weight: bold;
+            position: relative;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            padding-right: 170px;
+        }
+        .btn-del-action {
+            position: absolute;
+            right: 12px;
+            top: 10px;
+            width: 140px;
+            height: 70px;
+            font-size: 28px;
+            line-height: 55px;
+            border-width: 5px;
+        }
+        .history-footer {
+            display: block;
+            width: 96%;
+            margin: 15px auto 10px auto;
+            overflow: auto;
+            height: 90px;
+        }
+        .pag-btn-large {
+            float: left;
+            width: 48%;
+            height: 90px;
+            font-size: 36px;
+            line-height: 75px;
+            border-width: 5px;
+        }
+        
+        /* 过滤器按钮 */
+        .filter-btn {
+            float: left;
+            width: 18.4%;
+            margin-right: 2%;
+            height: 80px;
+            line-height: 65px;
+            font-size: 28px;
+            border-width: 4px;
+        }
+        .filter-btn:last-child {
+            margin-right: 0;
+            width: 18.4%;
+        }
+        .filter-btn.active {
+            background: #000000 !important;
+            color: #ffffff !important;
+        }
+        
+        /* 设置面板 */
+        .settings-form {
+            height: 480px;
+            overflow: hidden;
+        }
+        
+        .preset-name-btn {
+            float: left;
+            width: 18%;
+            margin-right: 2%;
+            height: 70px;
+            line-height: 55px;
+            font-size: 28px;
+            border-width: 4px;
+        }
+        .preset-name-btn:last-child {
+            margin-right: 0;
+        }
+        .preset-name-btn.active {
+            background: #000000 !important;
+            color: #ffffff !important;
+        }
+        .settings-field {
+            margin-bottom: 30px;
+            overflow: auto;
+        }
+        .settings-field label {
+            float: left;
+            width: 220px;
+            font-weight: bold;
+            line-height: 100px;
+            font-size: 38px;
+        }
+        .settings-field-input {
+            margin-left: 220px;
+        }
+        .settings-field-input input {
+            width: 100%;
+            height: 100px;
+            border: 6px solid #000000;
+            padding: 10px;
+            font-size: 38px;
+            font-weight: bold;
+        }
+        
+        /* 按钮触控反黑效果 */
+        .mech-btn:active, .op-btn:active {
+            background: #000000 !important;
+            color: #ffffff !important;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ==================== 1. 主控制面板 SCREEN (纯记录面板，无列表) ==================== -->
+<div id="screen-home" class="screen active">
+    <div class="home-container">
+        <!-- 页头 -->
+        <div class="home-header">
+            <div class="header-left">
+                宝宝: <span id="hdr-baby-name">宝宝</span> (<span id="hdr-baby-age">-</span>天)
+            </div>
+            <div class="header-right" id="system-time">-:-</div>
+        </div>
+        
+        <!-- 记录人签名快速切换 -->
+        <div class="operator-row">
+            <div class="op-label">记录人:</div>
+            <div class="op-buttons" id="sig-options-container">
+                <!-- 动态渲染 -->
+            </div>
+        </div>
+        
+        <!-- 四宫格物理大按钮 -->
+        <div class="home-grid">
+            <button class="mech-btn grid-cell" onclick="openFeedNavScreen()">喂奶 / 喂水</button>
+            <button class="mech-btn grid-cell" onclick="showScreen('diaper')">拉屎 / 撒尿</button>
+            <button class="mech-btn grid-cell" onclick="showScreen('health-nav')">体温 / 体重</button>
+            <button class="mech-btn grid-cell" onclick="showScreen('event-nav')">日常 / 设置</button>
+        </div>
+        
+        <!-- 底部大按钮 -->
+        <button class="mech-btn btn-toggle-history" onclick="openHistoryScreen()">查看历史记录表</button>
+    </div>
+</div>
+
+<!-- ==================== 2. 喂奶喂水中转 SCREEN ==================== -->
+<div id="screen-feed-nav" class="screen">
+    <div class="screen-title">喂奶 / 喂水选择</div>
+    <div class="sub-selection-grid">
+        <button class="mech-btn btn-choice-1col" onclick="showScreen('breast')">喂母乳 (时间 / ml)</button>
+        <button class="mech-btn btn-choice-1col" onclick="showScreen('formula')">喂奶粉 (ml)</button>
+        <button class="mech-btn btn-choice-1col" onclick="showScreen('water')">给喝水 (ml)</button>
+    </div>
+    <button class="mech-btn btn-bottom-back" onclick="showScreen('home')">取消 / 返回</button>
+</div>
+
+<!-- ==================== 3. 喂母乳 SCREEN ==================== -->
+<div id="screen-breast" class="screen">
+    <div class="screen-title">记录母乳喂养</div>
+    
+    <!-- 选项切换 -->
+    <div style="overflow: hidden; margin-bottom: 25px;">
+        <button id="breast-opt-time" class="mech-btn op-btn active" style="float: left; width: 48%; height: 110px; font-size: 38px; line-height: 95px; border-width: 6px;" onclick="setBreastMode('time')">时间 (分钟)</button>
+        <button id="breast-opt-vol" class="mech-btn op-btn" style="float: right; width: 48%; height: 110px; font-size: 38px; line-height: 95px; border-width: 6px;" onclick="setBreastMode('vol')">容量 (ml)</button>
+    </div>
+    
+    <!-- 数值大字显示 -->
+    <div class="weight-display" id="breast-value-display">15 分钟</div>
+    
+    <!-- 微调加减号 -->
+    <div style="overflow: hidden; margin-bottom: 30px; height: 180px;">
+        <button class="mech-btn" style="float: left; width: 48%; height: 180px; font-size: 80px; line-height: 160px; border-width: 8px;" onclick="adjustBreastValue(-1)">-</button>
+        <button class="mech-btn" style="float: right; width: 48%; height: 180px; font-size: 80px; line-height: 160px; border-width: 8px;" onclick="adjustBreastValue(1)">+</button>
+    </div>
+    
+    <!-- 确认提交 -->
+    <button class="mech-btn btn-choice-1col" style="background-color: #000; color: #fff; margin-bottom: 20px;" onclick="submitBreastDirect()">确认记录</button>
+    <button class="mech-btn btn-bottom-back" onclick="showScreen('feed-nav')">返回上一级</button>
+</div>
+
+<!-- ==================== 4. 喂奶粉 SCREEN ==================== -->
+<div id="screen-formula" class="screen">
+    <div class="screen-title">记录喂奶粉 (ml)</div>
+    
+    <!-- 选项（默认激活） -->
+    <div style="overflow: hidden; margin-bottom: 25px;">
+        <button class="mech-btn op-btn active" style="display: block; width: 100%; height: 110px; font-size: 38px; line-height: 95px; border-width: 6px; pointer-events: none;">选项：容量 (ml)</button>
+    </div>
+    
+    <!-- 数值大字显示 -->
+    <div class="weight-display" id="formula-value-display">120 ml</div>
+    
+    <!-- 微调加减号 -->
+    <div style="overflow: hidden; margin-bottom: 30px; height: 180px;">
+        <button class="mech-btn" style="float: left; width: 48%; height: 180px; font-size: 80px; line-height: 160px; border-width: 8px;" onclick="adjustFormulaValue(-1)">-</button>
+        <button class="mech-btn" style="float: right; width: 48%; height: 180px; font-size: 80px; line-height: 160px; border-width: 8px;" onclick="adjustFormulaValue(1)">+</button>
+    </div>
+    
+    <!-- 确认提交 -->
+    <button class="mech-btn btn-choice-1col" style="background-color: #000; color: #fff; margin-bottom: 20px;" onclick="submitFormulaDirect()">确认记录</button>
+    <button class="mech-btn btn-bottom-back" onclick="showScreen('feed-nav')">返回上一级</button>
+</div>
+
+<!-- ==================== 5. 喂温水 SCREEN ==================== -->
+<div id="screen-water" class="screen">
+    <div class="screen-title">记录喂温水 (ml)</div>
+    
+    <!-- 选项（默认激活） -->
+    <div style="overflow: hidden; margin-bottom: 25px;">
+        <button class="mech-btn op-btn active" style="display: block; width: 100%; height: 110px; font-size: 38px; line-height: 95px; border-width: 6px; pointer-events: none;">选项：容量 (ml)</button>
+    </div>
+    
+    <!-- 数值大字显示 -->
+    <div class="weight-display" id="water-value-display">30 ml</div>
+    
+    <!-- 微调加减号 -->
+    <div style="overflow: hidden; margin-bottom: 30px; height: 180px;">
+        <button class="mech-btn" style="float: left; width: 48%; height: 180px; font-size: 80px; line-height: 160px; border-width: 8px;" onclick="adjustWaterValue(-1)">-</button>
+        <button class="mech-btn" style="float: right; width: 48%; height: 180px; font-size: 80px; line-height: 160px; border-width: 8px;" onclick="adjustWaterValue(1)">+</button>
+    </div>
+    
+    <!-- 确认提交 -->
+    <button class="mech-btn btn-choice-1col" style="background-color: #000; color: #fff; margin-bottom: 20px;" onclick="submitWaterDirect()">确认记录</button>
+    <button class="mech-btn btn-bottom-back" onclick="showScreen('feed-nav')">返回上一级</button>
+</div>
+
+<!-- ==================== 6. 排泄选择 SCREEN ==================== -->
+<div id="screen-diaper" class="screen">
+    <div class="screen-title">记录排泄大类</div>
+    <div class="sub-selection-grid">
+        <button class="mech-btn btn-choice-1col" onclick="submitDiaperDirect(1, 0)">仅小便 (换尿片)</button>
+        <button class="mech-btn btn-choice-1col" onclick="goToStoolDetail(0, 1)">仅大便 (选颜色性状)</button>
+        <button class="mech-btn btn-choice-1col" onclick="goToStoolDetail(1, 1)">大便 + 小便</button>
+        <button class="mech-btn btn-choice-1col" onclick="submitDiaperDirect(0, 0)">仅更换尿布</button>
+    </div>
+    <button class="mech-btn btn-bottom-back" onclick="showScreen('home')">取消 / 返回</button>
+</div>
+
+<!-- ==================== 7. 大便细节选择 SCREEN ==================== -->
+<div id="screen-diaper-detail" class="screen">
+    <div class="screen-title">选择大便性状</div>
+    <div class="sub-selection-grid">
+        <button class="mech-btn btn-choice-1col" onclick="submitDiaperWithDetails('黄色', '糊状')">黄色 糊状 (常规)</button>
+        <button class="mech-btn btn-choice-1col" onclick="submitDiaperWithDetails('绿色', '稀便')">绿色 稀便 (略稀)</button>
+        <button class="mech-btn btn-choice-1col" onclick="submitDiaperWithDetails('其他', '硬便')">其他 性状</button>
+    </div>
+    <button class="mech-btn btn-bottom-back" onclick="showScreen('diaper')">返回上一级</button>
+</div>
+
+<!-- ==================== 8. 体温体重中转 SCREEN ==================== -->
+<div id="screen-health-nav" class="screen">
+    <div class="screen-title">健康记录选择</div>
+    <div class="sub-selection-grid">
+        <button class="mech-btn btn-choice-1col" onclick="showScreen('temp')">记录测量体温</button>
+        <button class="mech-btn btn-choice-1col" onclick="openWeightScreen()">记录测得体重</button>
+    </div>
+    <button class="mech-btn btn-bottom-back" onclick="showScreen('home')">取消 / 返回</button>
+</div>
+
+<!-- ==================== 9. 测体温 SCREEN ==================== -->
+<div id="screen-temp" class="screen">
+    <div class="screen-title">记录测量体温</div>
+    
+    <!-- 选项（默认激活） -->
+    <div style="overflow: hidden; margin-bottom: 25px;">
+        <button class="mech-btn op-btn active" style="display: block; width: 100%; height: 110px; font-size: 38px; line-height: 95px; border-width: 6px; pointer-events: none;">选项：体温 (℃)</button>
+    </div>
+    
+    <!-- 数值大字显示 -->
+    <div class="weight-display" id="temp-value-display">36.5 ℃</div>
+    
+    <!-- 微调加减号 -->
+    <div style="overflow: hidden; margin-bottom: 30px; height: 180px;">
+        <button class="mech-btn" style="float: left; width: 48%; height: 180px; font-size: 80px; line-height: 160px; border-width: 8px;" onclick="adjustTempValue(-1)">-</button>
+        <button class="mech-btn" style="float: right; width: 48%; height: 180px; font-size: 80px; line-height: 160px; border-width: 8px;" onclick="adjustTempValue(1)">+</button>
+    </div>
+    
+    <!-- 确认提交 -->
+    <button class="mech-btn btn-choice-1col" style="background-color: #000; color: #fff; margin-bottom: 20px;" onclick="submitTempDirect()">确认记录</button>
+    <button class="mech-btn btn-bottom-back" onclick="showScreen('health-nav')">返回上一级</button>
+</div>
+
+<!-- ==================== 10. 体重记录 SCREEN ==================== -->
+<div id="screen-weight" class="screen">
+    <div class="screen-title">微调体重数据</div>
+    <div class="weight-display" id="weight-value-display">3.00 kg</div>
+    <div class="weight-adjusters">
+        <button class="mech-btn weight-adj-btn" onclick="adjustWeight(-0.5)">-0.5</button>
+        <button class="mech-btn weight-adj-btn" onclick="adjustWeight(-0.1)">-0.1</button>
+        <button class="mech-btn weight-adj-btn" onclick="adjustWeight(0.1)">+0.1</button>
+        <button class="mech-btn weight-adj-btn" onclick="adjustWeight(0.5)">+0.5</button>
+    </div>
+    <button class="mech-btn btn-choice-1col" onclick="submitWeight()">确定记录体重</button>
+    <button class="mech-btn btn-bottom-back" onclick="showScreen('health-nav')">返回上一级</button>
+</div>
+
+<!-- ==================== 11. 日常与设置中转 SCREEN ==================== -->
+<div id="screen-event-nav" class="screen">
+    <div class="screen-title">日常事件与配置</div>
+    <div class="sub-selection-grid">
+        <button class="mech-btn btn-choice-2col" onclick="submitEvent('bath')">洗澡</button>
+        <button class="mech-btn btn-choice-2col" onclick="submitEvent('umbilical')">护脐</button>
+        <button class="mech-btn btn-choice-2col" onclick="submitEvent('ad_drop')">喂AD</button>
+        <button class="mech-btn btn-choice-2col" style="border-color: red;" onclick="openSettingsScreen()">系统设置</button>
+    </div>
+    <button class="mech-btn btn-bottom-back" onclick="showScreen('home')">取消 / 返回</button>
+</div>
+
+<!-- ==================== 12. 系统设置 SCREEN ==================== -->
+<div id="screen-settings" class="screen">
+    <div class="screen-title">系统参数配置</div>
+    
+    <div id="settings-hint" style="font-size: 24px; font-weight: bold; color: #555; margin-bottom: 20px; line-height: 35px; text-align: center;">
+        提示：若需输入自定义姓名，建议在手机或电脑浏览器中打开本网页进行配置保存。
+    </div>
+    
+    <div class="settings-form">
+        <div class="settings-field" style="margin-bottom: 15px;">
+            <label>宝宝姓名:</label>
+            <div class="settings-field-input"><input type="text" id="set-baby-name"></div>
+        </div>
+        
+        <div class="settings-field" style="margin-bottom: 25px;">
+            <label>姓名预设:</label>
+            <div class="settings-field-input" style="overflow: hidden;">
+                <button class="mech-btn preset-name-btn" onclick="selectPresetName('宝宝')">宝宝</button>
+                <button class="mech-btn preset-name-btn" onclick="selectPresetName('贝贝')">贝贝</button>
+                <button class="mech-btn preset-name-btn" onclick="selectPresetName('乖乖')">乖乖</button>
+                <button class="mech-btn preset-name-btn" onclick="selectPresetName('弟弟')">弟弟</button>
+                <button class="mech-btn preset-name-btn" onclick="selectPresetName('妹妹')">妹妹</button>
+            </div>
+        </div>
+        
+        <div class="settings-field" style="margin-bottom: 15px;">
+            <label>出生日期:</label>
+            <div class="settings-field-input">
+                <div id="set-date-display" style="border: 5px solid #000; height: 80px; line-height: 70px; font-size: 38px; font-weight: bold; text-align: center; background: #f0f0f0;">
+                    2026-06-14
+                </div>
+            </div>
+        </div>
+        
+        <div class="settings-field" style="margin-bottom: 15px;">
+            <label>日期微调:</label>
+            <div class="settings-field-input" style="overflow: hidden; height: 90px;">
+                <div style="float: left; width: 32%; margin-right: 2%; overflow: hidden;">
+                    <button class="mech-btn" style="float: left; width: 46%; height: 90px; line-height: 75px; font-size: 30px; border-width: 4px; box-sizing: border-box; -webkit-box-sizing: border-box;" onclick="adjustBirthDate('year', -1)">-年</button>
+                    <button class="mech-btn" style="float: right; width: 46%; height: 90px; line-height: 75px; font-size: 30px; border-width: 4px; box-sizing: border-box; -webkit-box-sizing: border-box;" onclick="adjustBirthDate('year', 1)">+年</button>
+                </div>
+                <div style="float: left; width: 32%; margin-right: 2%; overflow: hidden;">
+                    <button class="mech-btn" style="float: left; width: 46%; height: 90px; line-height: 75px; font-size: 30px; border-width: 4px; box-sizing: border-box; -webkit-box-sizing: border-box;" onclick="adjustBirthDate('month', -1)">-月</button>
+                    <button class="mech-btn" style="float: right; width: 46%; height: 90px; line-height: 75px; font-size: 30px; border-width: 4px; box-sizing: border-box; -webkit-box-sizing: border-box;" onclick="adjustBirthDate('month', 1)">+月</button>
+                </div>
+                <div style="float: left; width: 32%; overflow: hidden;">
+                    <button class="mech-btn" style="float: left; width: 46%; height: 90px; line-height: 75px; font-size: 30px; border-width: 4px; box-sizing: border-box; -webkit-box-sizing: border-box;" onclick="adjustBirthDate('day', -1)">-日</button>
+                    <button class="mech-btn" style="float: right; width: 46%; height: 90px; line-height: 75px; font-size: 30px; border-width: 4px; box-sizing: border-box; -webkit-box-sizing: border-box;" onclick="adjustBirthDate('day', 1)">+日</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div style="margin-top: 30px; overflow: hidden; height: 150px;">
+        <button class="mech-btn" style="float: left; width: 48%; height: 150px; font-size: 40px; line-height: 135px; border-width: 7px;" onclick="showScreen('event-nav')">取消 / 返回</button>
+        <button class="mech-btn" style="float: right; width: 48%; height: 150px; font-size: 40px; line-height: 135px; border-width: 7px; background-color: #000; color: #fff;" onclick="submitSettings()">保存配置</button>
+    </div>
+</div>
+
+<!-- ==================== 13. 历史记录列表 SCREEN (独立全屏大字) ==================== -->
+<div id="screen-history" class="screen">
+    <button class="mech-btn" style="margin: 0 auto 8px auto; display: block; width: 96%; height: 80px; font-size: 32px; line-height: 65px; border-width: 5px;" onclick="showScreen('home')">
+        返回主记录面板
+    </button>
+    <div class="screen-title" id="history-page-title" style="margin-bottom: 5px; font-size: 44px; height: 70px; line-height: 60px;">历史记录表 (第 1/1 页)</div>
+    
+    <!-- 日期选择行 (前一天 / 当前日期 / 后一天) -->
+    <div style="overflow: hidden; margin-bottom: 8px; height: 80px; line-height: 65px; width: 96%; margin-left: auto; margin-right: auto;">
+        <button class="mech-btn" style="float: left; width: 28%; height: 80px; font-size: 30px; line-height: 65px; border-width: 4px;" onclick="adjustHistoryDate(-1)">前一天</button>
+        <div id="history-date-display" style="float: left; width: 40%; margin-left: 2%; margin-right: 2%; text-align: center; font-size: 30px; font-weight: bold; border: 4px solid #000; height: 80px; line-height: 70px; background-color: #f0f0f0; overflow: hidden;">
+            -
+        </div>
+        <button class="mech-btn" style="float: right; width: 28%; height: 80px; font-size: 30px; line-height: 65px; border-width: 4px;" onclick="adjustHistoryDate(1)">后一天</button>
+    </div>
+    
+    <div id="history-stats-bar" style="font-size: 24px; font-weight: bold; border: 4px solid #000; padding: 6px 12px; background: #f0f0f0; margin-bottom: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; height: 55px; line-height: 35px;">
+        今日统计加载中...
+    </div>
+    
+    <div class="filter-row" style="margin-bottom: 8px; overflow: hidden; height: 80px;">
+        <button class="mech-btn filter-btn active" onclick="setHistoryFilter('')">全部</button>
+        <button class="mech-btn filter-btn" onclick="setHistoryFilter('feed')">喂奶</button>
+        <button class="mech-btn filter-btn" onclick="setHistoryFilter('diaper')">排泄</button>
+        <button class="mech-btn filter-btn" onclick="setHistoryFilter('health')">健康</button>
+        <button class="mech-btn filter-btn" onclick="setHistoryFilter('event')">日常</button>
+    </div>
+    
+    <div class="history-list" id="history-list-container">
+        <!-- 动态生成 5 条超大行记录 -->
+    </div>
+    
+    <div class="history-footer">
+        <button class="mech-btn pag-btn-large" style="margin-right: 4%;" onclick="prevPage()">< 上一页</button>
+        <button class="mech-btn pag-btn-large" onclick="nextPage()">下一页 ></button>
+    </div>
+</div>
+
+<script>
+    // ==================== 全局状态与时间同步 ====================
+    var serverTimeOffset = 0;
+    var state = {
+        currentPage: 1,
+        totalPages: 1,
+        limit: 6, // 历史页面限制单页 6 条
+        activeSignature: '',
+        currentCategory: '', // 过滤器分类：'' 为全部，'feed', 'diaper', 'health', 'event' 分别对应
+        settings: {
+            baby_name: '宝宝',
+            birth_date: ''
+        },
+        settingsTemp: {
+            baby_name: '',
+            birth_date: ''
+        },
+        diaperTemp: {
+            urine: 0,
+            stool: 0
+        },
+        weightTemp: 3.00,
+        breastMode: 'time',
+        breastTime: 15,
+        breastVol: 100,
+        formulaVol: 120,
+        waterVol: 30,
+        tempTemp: 36.5,
+        historyDate: ''
+    };
+
+    // AJAX 辅助
+    function ajax(method, url, data, callback) {
+        var xhr = new XMLHttpRequest();
+        xhr.open(method, url, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    var res = null;
+                    try { res = JSON.parse(xhr.responseText); } catch(e) {}
+                    callback(null, res);
+                } else {
+                    callback(new Error('HTTP Status: ' + xhr.status), null);
+                }
+            }
+        };
+        if (data) {
+            xhr.send(JSON.stringify(data));
+        } else {
+            xhr.send();
+        }
+    }
+
+    // 全屏卡片显示切换
+    function showScreen(screenId) {
+        var screens = [
+            'home', 'feed-nav', 'breast', 'formula', 'water', 'diaper', 
+            'diaper-detail', 'health-nav', 'temp', 'weight', 'event-nav', 'settings', 'history'
+        ];
+        for (var i = 0; i < screens.length; i++) {
+            var el = document.getElementById('screen-' + screens[i]);
+            if (screens[i] === screenId) {
+                el.className = 'screen active';
+            } else {
+                el.className = 'screen';
+            }
+        }
+        if (screenId === 'breast') {
+            updateBreastDisplay();
+        } else if (screenId === 'formula') {
+            updateFormulaDisplay();
+        } else if (screenId === 'water') {
+            updateWaterDisplay();
+        } else if (screenId === 'temp') {
+            updateTempDisplay();
+        }
+    }
+
+    // 初始化
+    window.onload = function() {
+        updateSystemTime();
+        setInterval(updateSystemTime, 10000); // 10秒自动校正刷新，保障时钟显示即时准确
+
+        // 自动缩放监控与强制重置（对抗 Kindle PW3 底层硬件/系统级强制双击缩放）
+        var expectedWidth = window.innerWidth || 1072;
+        
+        function resetZoom() {
+            var meta = document.querySelector('meta[name="viewport"]');
+            if (meta) {
+                meta.parentNode.removeChild(meta);
+            }
+            var newMeta = document.createElement('meta');
+            newMeta.name = "viewport";
+            newMeta.content = "width=device-width, initial-scale=1.0001, minimum-scale=1.0001, maximum-scale=1.0001, user-scalable=0";
+            document.getElementsByTagName('head')[0].appendChild(newMeta);
+            
+            setTimeout(function() {
+                newMeta.content = "width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0";
+            }, 50);
+        }
+
+        window.addEventListener('resize', function() {
+            var isKindle = /Kindle/i.test(navigator.userAgent) || /Silk/i.test(navigator.userAgent);
+            if (isKindle) {
+                // Kindle 发生窗口尺寸变化一定是由于手势缩放导致的，立刻执行强制重置
+                if (window.innerWidth && Math.abs(window.innerWidth - expectedWidth) > 8) {
+                    resetZoom();
+                }
+            } else {
+                // 如果是 PC/手机 浏览器的主动窗口大小调整，则更新基准宽度
+                expectedWidth = window.innerWidth;
+            }
+        });
+        
+        // 彻底禁用 Kindle 浏览器中的所有缩放行为 (双击缩放 & 双指捏合缩放)
+        var isKindle = /Kindle/i.test(navigator.userAgent) || /Silk/i.test(navigator.userAgent);
+        if (isKindle) {
+            document.body.className += " is-kindle-device";
+            document.addEventListener('touchstart', function(event) {
+                // 彻底阻止任何浏览器默认触摸行为（阻断缩放、捏合与滚动手势）
+                event.preventDefault();
+                
+                var el = event.target;
+                if (el) {
+                    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                        el.focus();
+                    } else {
+                        // 递归查找最近的 click 宿主元素（防止点击 span/div 时无法冒泡触发 click）
+                        var clickable = el;
+                        while (clickable && clickable !== document.body) {
+                            if (clickable.tagName === 'BUTTON' || clickable.tagName === 'A' || clickable.onclick || (clickable.className && typeof clickable.className === 'string' && (clickable.className.indexOf('mech-btn') !== -1 || clickable.className.indexOf('op-btn') !== -1))) {
+                                break;
+                            }
+                            clickable = clickable.parentNode;
+                        }
+                        if (clickable && clickable !== document.body) {
+                            clickable.click();
+                        } else {
+                            el.click();
+                        }
+                    }
+                }
+            }, { passive: false });
+        } else {
+            // 非 Kindle 浏览器 (如手机/电脑) 保留常规的快速双击及双指拦截，允许列表滚动
+            var lastTouchStart = 0;
+            document.addEventListener('touchstart', function(event) {
+                if (event.touches.length > 1) {
+                    event.preventDefault();
+                    return;
+                }
+                var now = new Date().getTime();
+                if (now - lastTouchStart <= 300) {
+                    event.preventDefault();
+                    var el = event.target;
+                    if (el) {
+                        el.click();
+                    }
+                }
+                lastTouchStart = now;
+            }, { passive: false });
+        }
+
+        // 捕获阶段强力拦截 dblclick (双击) 和 gesture (手势) 事件，防止内核触发原生缩放
+        document.addEventListener('dblclick', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }, true);
+
+        document.addEventListener('gesturestart', function(event) {
+            event.preventDefault();
+        }, true);
+
+        document.addEventListener('gesturechange', function(event) {
+            event.preventDefault();
+        }, true);
+
+        loadSettings(function() {
+            var savedSig = localStorage.getItem('bt_active_signature');
+            var sigList = ['爸爸', '妈妈', '奶奶', '外婆', '其他'];
+            if (savedSig && sigList.indexOf(savedSig) !== -1) {
+                state.activeSignature = savedSig;
+            } else if (sigList.length > 0) {
+                state.activeSignature = sigList[0];
+            }
+            renderSignatureBar();
+        });
+    };
+
+    function updateSystemTime() {
+        var now = new Date();
+        if (serverTimeOffset) {
+            now = new Date(now.getTime() + serverTimeOffset);
+        }
+        var hh = now.getHours();
+        hh = hh < 10 ? '0' + hh : hh;
+        var min = now.getMinutes();
+        min = min < 10 ? '0' + min : min;
+        document.getElementById('system-time').innerText = hh + ':' + min;
+    }
+
+    function loadSettings(callback) {
+        var clientReqTime = new Date().getTime();
+        ajax('GET', '/api/settings', null, function(err, data) {
+            if (!err && data) {
+                state.settings = data;
+                if (data._server_time) {
+                    var clientRespTime = new Date().getTime();
+                    var latency = Math.floor((clientRespTime - clientReqTime) / 2);
+                    var st = data._server_time;
+                    var serverLocal = new Date(st.year, st.month - 1, st.day, st.hour, st.minute, st.second);
+                    var adjustedServerLocalTime = serverLocal.getTime() + latency;
+                    serverTimeOffset = adjustedServerLocalTime - clientRespTime;
+                    updateSystemTime(); // 计算出 Offset 后立即强制刷新系统时钟
+                }
+                updateHeaderInfo();
+            }
+            if (callback) callback();
+        });
+    }
+
+    function updateHeaderInfo() {
+        document.getElementById('hdr-baby-name').innerText = state.settings.baby_name || '宝宝';
+        
+        if (state.settings.birth_date) {
+            var dateStr = state.settings.birth_date.replace(/-/g, '/');
+            var dob = new Date(dateStr);
+            var today = new Date();
+            if (serverTimeOffset) {
+                today = new Date(today.getTime() + serverTimeOffset);
+            }
+            dob.setHours(0,0,0,0);
+            today.setHours(0,0,0,0);
+            var diffMs = today.getTime() - dob.getTime();
+            if (isNaN(diffMs)) {
+                var parts = state.settings.birth_date.split('-');
+                if (parts.length === 3) {
+                    dob = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                    dob.setHours(0,0,0,0);
+                    diffMs = today.getTime() - dob.getTime();
+                }
+            }
+            var diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
+            document.getElementById('hdr-baby-age').innerText = (!isNaN(diffDays) && diffDays > 0) ? diffDays : '1';
+        } else {
+            document.getElementById('hdr-baby-age').innerText = '-';
+        }
+    }
+
+    function getLocalYYYYMMDD(d) {
+        var yy = d.getFullYear();
+        var mm = d.getMonth() + 1;
+        mm = mm < 10 ? '0' + mm : mm;
+        var dd = d.getDate();
+        dd = dd < 10 ? '0' + dd : dd;
+        return yy + '-' + mm + '-' + dd;
+    }
+
+    function renderSignatureBar() {
+        var container = document.getElementById('sig-options-container');
+        container.innerHTML = '';
+        var sigList = ['爸爸', '妈妈', '奶奶', '外婆', '其他'];
+        for (var i = 0; i < sigList.length; i++) {
+            var name = sigList[i];
+            var btn = document.createElement('span');
+            btn.className = 'mech-btn op-btn';
+            if (name === state.activeSignature) {
+                btn.className += ' active';
+            }
+            btn.innerText = name;
+            btn.onclick = (function(n) {
+                return function() {
+                    state.activeSignature = n;
+                    localStorage.setItem('bt_active_signature', n);
+                    renderSignatureBar();
+                };
+            })(name);
+            container.appendChild(btn);
+        }
+    }
+
+    function formatLogShortText(item) {
+        if (item.category === 'feed') {
+            if (item.feed_type === 'breast') return '母乳: ' + item.feed_amount + '分钟';
+            if (item.feed_type === 'breast_ml') return '母乳(瓶喂): ' + item.feed_amount + 'ml';
+            if (item.feed_type === 'formula') return '奶粉: ' + item.feed_amount + 'ml';
+            if (item.feed_type === 'water') return '喝水: ' + item.feed_amount + 'ml';
+        } else if (item.category === 'diaper') {
+            var parts = [];
+            if (item.diaper_urine) parts.push('尿');
+            if (item.diaper_stool) {
+                parts.push('粑(' + (item.stool_color || '') + (item.stool_shape || '') + ')');
+            }
+            if (item.diaper_change && !item.diaper_urine && !item.diaper_stool) parts.push('换尿布');
+            return '排泄: ' + (parts.join('+') || '无');
+        } else if (item.category === 'health') {
+            var parts = [];
+            if (item.temperature) parts.push(item.temperature + '℃');
+            if (item.weight) parts.push(item.weight + 'kg');
+            return '健康: ' + parts.join('|');
+        } else if (item.category === 'event') {
+            if (item.event_name === 'bath') return '洗澡';
+            if (item.event_name === 'umbilical') return '护脐';
+            if (item.event_name === 'to_nursery') return '送托';
+            if (item.event_name === 'back_mom') return '送回';
+            if (item.event_name === 'ad_drop') return '喂AD';
+            if (item.event_name === 'custom') return '⚡' + (item.remarks || '');
+        }
+        return '';
+    }
+
+    // ==================== 接口提交操作 ====================
+    function submitFeed(type, amount) {
+        var payload = {
+            category: 'feed',
+            feed_type: type,
+            feed_amount: amount,
+            signature: state.activeSignature
+        };
+        postLog(payload);
+    }
+
+    // ==================== 喂奶喂水微调逻辑 ====================
+    function setBreastMode(mode) {
+        state.breastMode = mode;
+        document.getElementById('breast-opt-time').className = (mode === 'time') ? 'mech-btn op-btn active' : 'mech-btn op-btn';
+        document.getElementById('breast-opt-vol').className = (mode === 'vol') ? 'mech-btn op-btn active' : 'mech-btn op-btn';
+        updateBreastDisplay();
+    }
+
+    function updateBreastDisplay() {
+        if (state.breastMode === 'time') {
+            document.getElementById('breast-value-display').innerText = state.breastTime + ' 分钟';
+        } else {
+            document.getElementById('breast-value-display').innerText = state.breastVol + ' ml';
+        }
+    }
+
+    function adjustBreastValue(diff) {
+        if (state.breastMode === 'time') {
+            state.breastTime += diff * 5;
+            if (state.breastTime < 5) state.breastTime = 5;
+            if (state.breastTime > 90) state.breastTime = 90;
+        } else {
+            state.breastVol += diff * 10;
+            if (state.breastVol < 10) state.breastVol = 10;
+            if (state.breastVol > 300) state.breastVol = 300;
+        }
+        updateBreastDisplay();
+    }
+
+    function submitBreastDirect() {
+        if (state.breastMode === 'time') {
+            submitFeed('breast', state.breastTime);
+        } else {
+            submitFeed('breast_ml', state.breastVol);
+        }
+    }
+
+    function updateFormulaDisplay() {
+        document.getElementById('formula-value-display').innerText = state.formulaVol + ' ml';
+    }
+
+    function adjustFormulaValue(diff) {
+        state.formulaVol += diff * 10;
+        if (state.formulaVol < 10) state.formulaVol = 10;
+        if (state.formulaVol > 300) state.formulaVol = 300;
+        updateFormulaDisplay();
+    }
+
+    function submitFormulaDirect() {
+        submitFeed('formula', state.formulaVol);
+    }
+
+    function updateWaterDisplay() {
+        document.getElementById('water-value-display').innerText = state.waterVol + ' ml';
+    }
+
+    function adjustWaterValue(diff) {
+        state.waterVol += diff * 10;
+        if (state.waterVol < 10) state.waterVol = 10;
+        if (state.waterVol > 200) state.waterVol = 200;
+        updateWaterDisplay();
+    }
+
+    function submitWaterDirect() {
+        submitFeed('water', state.waterVol);
+    }
+
+    // ==================== 体温微调与提交 ====================
+    function updateTempDisplay() {
+        document.getElementById('temp-value-display').innerText = state.tempTemp.toFixed(1) + ' ℃';
+    }
+
+    function adjustTempValue(diff) {
+        state.tempTemp = parseFloat((state.tempTemp + diff * 0.1).toFixed(1));
+        if (state.tempTemp < 35.0) state.tempTemp = 35.0;
+        if (state.tempTemp > 42.0) state.tempTemp = 42.0;
+        updateTempDisplay();
+    }
+
+    function submitTempDirect() {
+        submitTemp(state.tempTemp);
+    }
+
+    function submitDiaperDirect(urine, stool) {
+        var payload = {
+            category: 'diaper',
+            diaper_urine: urine,
+            diaper_stool: stool,
+            diaper_change: 1,
+            signature: state.activeSignature
+        };
+        postLog(payload);
+    }
+
+    function goToStoolDetail(urine, stool) {
+        state.diaperTemp.urine = urine;
+        state.diaperTemp.stool = stool;
+        showScreen('diaper-detail');
+    }
+
+    function submitDiaperWithDetails(color, shape) {
+        var payload = {
+            category: 'diaper',
+            diaper_urine: state.diaperTemp.urine,
+            diaper_stool: state.diaperTemp.stool,
+            diaper_change: 1,
+            stool_color: color,
+            stool_shape: shape,
+            signature: state.activeSignature
+        };
+        postLog(payload);
+    }
+
+    function submitTemp(val) {
+        var payload = {
+            category: 'health',
+            temperature: val,
+            signature: state.activeSignature
+        };
+        postLog(payload);
+    }
+
+    function submitEvent(name) {
+        var payload = {
+            category: 'event',
+            event_name: name,
+            signature: state.activeSignature
+        };
+        postLog(payload);
+    }
+
+    function openWeightScreen() {
+        state.weightTemp = 3.00;
+        ajax('GET', '/api/logs?page=1&limit=50', null, function(err, data) {
+            if (!err && data && data.logs) {
+                for (var i = 0; i < data.logs.length; i++) {
+                    if (data.logs[i].weight) {
+                        state.weightTemp = parseFloat(data.logs[i].weight);
+                        break;
+                    }
+                }
+            }
+            updateWeightDisplay();
+            showScreen('weight');
+        });
+    }
+
+    function adjustWeight(diff) {
+        state.weightTemp = parseFloat((state.weightTemp + diff).toFixed(2));
+        if (state.weightTemp < 0) state.weightTemp = 0;
+        updateWeightDisplay();
+    }
+
+    function updateWeightDisplay() {
+        document.getElementById('weight-value-display').innerText = state.weightTemp.toFixed(2) + ' kg';
+    }
+
+    function submitWeight() {
+        var payload = {
+            category: 'health',
+            weight: parseFloat(state.weightTemp.toFixed(2)),
+            signature: state.activeSignature
+        };
+        postLog(payload);
+    }
+
+    function submitSettings() {
+        var payload = {
+            baby_name: document.getElementById('set-baby-name').value.trim(),
+            birth_date: state.settingsTemp.birth_date
+        };
+        
+        if (!payload.baby_name) {
+            alert('姓名不能为空');
+            return;
+        }
+        
+        ajax('POST', '/api/settings', payload, function(err, res) {
+            if (!err && res && res.success) {
+                state.settings.baby_name = payload.baby_name;
+                state.settings.birth_date = payload.birth_date;
+                updateHeaderInfo();
+                showToast('记录完成', function() {
+                    showScreen('home');
+                });
+            } else {
+                showToast('保存失败');
+            }
+        });
+    }
+
+    function openSettingsScreen() {
+        state.settingsTemp.baby_name = state.settings.baby_name || '宝宝';
+        var defDate = new Date();
+        if (serverTimeOffset) {
+            defDate = new Date(defDate.getTime() + serverTimeOffset);
+        }
+        state.settingsTemp.birth_date = state.settings.birth_date || getLocalYYYYMMDD(defDate);
+        
+        document.getElementById('set-baby-name').value = state.settingsTemp.baby_name;
+        
+        updateSettingsDisplay();
+        showScreen('settings');
+    }
+
+    function selectPresetName(name) {
+        state.settingsTemp.baby_name = name;
+        document.getElementById('set-baby-name').value = name;
+        
+        var btns = document.querySelectorAll('.preset-name-btn');
+        for (var i = 0; i < btns.length; i++) {
+            var btn = btns[i];
+            if (btn.innerText === name) {
+                btn.className = 'mech-btn preset-name-btn active';
+            } else {
+                btn.className = 'mech-btn preset-name-btn';
+            }
+        }
+    }
+
+    function adjustBirthDate(type, diff) {
+        var defDate = new Date();
+        if (serverTimeOffset) {
+            defDate = new Date(defDate.getTime() + serverTimeOffset);
+        }
+        var dateStr = state.settingsTemp.birth_date || getLocalYYYYMMDD(defDate);
+        var parts = dateStr.split('-');
+        var y = parseInt(parts[0], 10);
+        var m = parseInt(parts[1], 10);
+        var d = parseInt(parts[2], 10);
+        
+        if (type === 'year') {
+            y += diff;
+        } else if (type === 'month') {
+            m += diff;
+            if (m < 1) { m = 12; y--; }
+            if (m > 12) { m = 1; y++; }
+        } else if (type === 'day') {
+            d += diff;
+            var daysInMonth = new Date(y, m, 0).getDate();
+            if (d < 1) {
+                m--;
+                if (m < 1) { m = 12; y--; }
+                var prevDays = new Date(y, m, 0).getDate();
+                d = prevDays;
+            } else if (d > daysInMonth) {
+                d = 1;
+                m++;
+                if (m > 12) { m = 1; y++; }
+            }
+        }
+        
+        var yy = y;
+        var mm = m < 10 ? '0' + m : m;
+        var dd = d < 10 ? '0' + d : d;
+        state.settingsTemp.birth_date = yy + '-' + mm + '-' + dd;
+        updateSettingsDisplay();
+    }
+
+    function updateSettingsDisplay() {
+        document.getElementById('set-date-display').innerText = state.settingsTemp.birth_date;
+        
+        var currentName = document.getElementById('set-baby-name').value.trim();
+        var btns = document.querySelectorAll('.preset-name-btn');
+        for (var i = 0; i < btns.length; i++) {
+            var btn = btns[i];
+            if (btn.innerText === currentName) {
+                btn.className = 'mech-btn preset-name-btn active';
+            } else {
+                btn.className = 'mech-btn preset-name-btn';
+            }
+        }
+    }
+
+    function postLog(payload) {
+        ajax('POST', '/api/logs', payload, function(err, res) {
+            if (!err && res && res.success) {
+                showToast('记录完成', function() {
+                    showScreen('home');
+                });
+            } else {
+                showToast('提交失败');
+            }
+        });
+    }
+
+    // ==================== 自定义 Toast 提示 ====================
+    function showToast(message, callback) {
+        var toast = document.getElementById('toast');
+        var toastText = document.getElementById('toast-text');
+        if (!toast || !toastText) {
+            if (callback) callback();
+            return;
+        }
+        toastText.innerText = message || '记录完成';
+        toast.style.display = 'block';
+        setTimeout(function() {
+            toast.style.display = 'none';
+            if (callback) callback();
+        }, 1200); // 1.2 秒自动消失
+    }
+
+    // ==================== 加载历史默认进食数据 ====================
+    function openFeedNavScreen() {
+        loadFeedingDefaults(function() {
+            showScreen('feed-nav');
+        });
+    }
+
+    function loadFeedingDefaults(callback) {
+        ajax('GET', '/api/logs?page=1&limit=50&category=feed', null, function(err, data) {
+            if (!err && data && data.logs) {
+                var foundTime = false, foundVol = false, foundFormula = false, foundWater = false;
+                var logs = data.logs;
+                for (var i = 0; i < logs.length; i++) {
+                    var log = logs[i];
+                    if (log.feed_type === 'breast' && !foundTime) {
+                        state.breastTime = parseInt(log.feed_amount, 10) || 15;
+                        foundTime = true;
+                    }
+                    if (log.feed_type === 'breast_ml' && !foundVol) {
+                        state.breastVol = parseInt(log.feed_amount, 10) || 100;
+                        foundVol = true;
+                    }
+                    if (log.feed_type === 'formula' && !foundFormula) {
+                        state.formulaVol = parseInt(log.feed_amount, 10) || 120;
+                        foundFormula = true;
+                    }
+                    if (log.feed_type === 'water' && !foundWater) {
+                        state.waterVol = parseInt(log.feed_amount, 10) || 30;
+                        foundWater = true;
+                    }
+                    if (foundTime && foundVol && foundFormula && foundWater) {
+                        break;
+                    }
+                }
+            }
+            if (callback) callback();
+        });
+    }
+
+    // ==================== 历史记录查看屏 ====================
+    function openHistoryScreen() {
+        state.currentPage = 1;
+        state.currentCategory = '';
+        
+        var today = new Date();
+        if (serverTimeOffset) {
+            today = new Date(today.getTime() + serverTimeOffset);
+        }
+        state.historyDate = getLocalYYYYMMDD(today);
+        document.getElementById('history-date-display').innerText = state.historyDate;
+        
+        var btns = document.querySelectorAll('.filter-btn');
+        for (var i = 0; i < btns.length; i++) {
+            var btn = btns[i];
+            var attr = btn.getAttribute('onclick');
+            if (attr && attr.indexOf("''") !== -1) {
+                btn.className = 'mech-btn filter-btn active';
+            } else {
+                btn.className = 'mech-btn filter-btn';
+            }
+        }
+        
+        loadHistoryLogs();
+        showScreen('history');
+    }
+
+    function loadHistoryLogs() {
+        var container = document.getElementById('history-list-container');
+        container.innerHTML = '<div style="text-align:center; padding:30px; font-size: 28px;">数据加载中...</div>';
+        
+        var url = '/api/logs?page=' + state.currentPage + '&limit=' + state.limit;
+        if (state.currentCategory) {
+            url += '&category=' + state.currentCategory;
+        }
+        if (state.historyDate) {
+            url += '&date=' + state.historyDate;
+        }
+        
+        ajax('GET', url, null, function(err, data) {
+            if (err || !data || !data.logs) {
+                container.innerHTML = '<div style="text-align:center; padding:30px; color:red; font-size: 28px;">无法加载记录</div>';
+                return;
+            }
+            
+            state.totalPages = data.total_pages;
+            state.currentPage = data.page;
+            
+            var titleText = '历史记录表';
+            if (state.currentCategory) {
+                var catNames = { 'feed': '喂奶', 'diaper': '排泄', 'health': '健康', 'event': '日常' };
+                titleText += '(' + (catNames[state.currentCategory] || '') + ')';
+            }
+            titleText += ' (第 ' + state.currentPage + ' / ' + state.totalPages + ' 页)';
+            document.getElementById('history-page-title').innerText = titleText;
+            
+            // Render statistics
+            renderStatsBar(data.stats);
+            
+            container.innerHTML = '';
+            var logs = data.logs;
+            if (logs.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:30px; font-size: 28px;">暂无记录</div>';
+                return;
+            }
+            
+            for (var i = 0; i < logs.length; i++) {
+                var item = logs[i];
+                var row = document.createElement('div');
+                row.className = 'history-row';
+                
+                var timePart = (item.timestamp && item.timestamp.length >= 19) ? item.timestamp.substring(11, 16) : '';
+                var intervalText = '';
+                if (item.interval_text) {
+                    intervalText = ' <span style="font-size:26px; color:#555; font-weight:normal;">(间' + item.interval_text + ')</span>';
+                }
+                row.innerHTML = '<span>' + timePart + '</span> | ' + formatLogShortText(item) + intervalText + ' (' + (item.signature || '-') + ')';
+                
+                var delBtn = document.createElement('button');
+                delBtn.className = 'mech-btn btn-del-action';
+                delBtn.innerText = '删除';
+                delBtn.onclick = (function(id) {
+                    return function() {
+                        confirmDeleteLog(id);
+                    };
+                })(item.id);
+                row.appendChild(delBtn);
+                
+                container.appendChild(row);
+            }
+        });
+    }
+
+    function setHistoryFilter(cat) {
+        state.currentCategory = cat;
+        state.currentPage = 1;
+        
+        var btns = document.querySelectorAll('.filter-btn');
+        for (var i = 0; i < btns.length; i++) {
+            var btn = btns[i];
+            var attr = btn.getAttribute('onclick');
+            if (attr) {
+                if ((cat === '' && attr.indexOf("''") !== -1) || (cat !== '' && attr.indexOf("'" + cat + "'") !== -1)) {
+                    btn.className = 'mech-btn filter-btn active';
+                } else {
+                    btn.className = 'mech-btn filter-btn';
+                }
+            }
+        }
+        
+        loadHistoryLogs();
+    }
+
+    function adjustHistoryDate(diff) {
+        var parts = state.historyDate.split('-');
+        var y = parseInt(parts[0], 10);
+        var m = parseInt(parts[1], 10);
+        var d = parseInt(parts[2], 10);
+        
+        var current = new Date(y, m - 1, d);
+        current.setDate(current.getDate() + diff);
+        
+        state.historyDate = getLocalYYYYMMDD(current);
+        document.getElementById('history-date-display').innerText = state.historyDate;
+        
+        state.currentPage = 1;
+        loadHistoryLogs();
+    }
+
+    function renderStatsBar(stats) {
+        var el = document.getElementById('history-stats-bar');
+        if (!el) return;
+        if (!stats) {
+            el.innerText = state.historyDate + ' 无统计数据';
+            return;
+        }
+        
+        var parts = [];
+        parts.push(state.historyDate + ' 统计: 喂奶 ' + stats.feed_breast + '母 ' + stats.feed_formula + '粉 ' + stats.feed_water + '水');
+        parts.push(' | 排泄 ' + stats.diaper_urine + '尿 ' + stats.diaper_stool + '粑');
+        
+        if (stats.health_total) {
+            parts.push(' | 健康 ' + stats.health_total + '次');
+        }
+        if (stats.event_total) {
+            parts.push(' | 日常 ' + stats.event_total + '次');
+        }
+        
+        el.innerText = parts.join('');
+    }
+
+    function prevPage() {
+        if (state.currentPage > 1) {
+            state.currentPage--;
+            loadHistoryLogs();
+        }
+    }
+
+    function nextPage() {
+        if (state.currentPage < state.totalPages) {
+            state.currentPage++;
+            loadHistoryLogs();
+        }
+    }
+
+    function confirmDeleteLog(id) {
+        if (confirm('确定删除该记录吗？')) {
+            ajax('DELETE', '/api/logs/' + id, null, function(err, res) {
+                if (!err && res && res.success) {
+                    loadHistoryLogs();
+                } else {
+                    alert('删除失败');
+                }
+            });
+        }
+    }
+</script>
+<!-- Toast 全屏提示框 (兼具 E-ink 屏闪黑刷新除影功能) -->
+<div id="toast" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000000; color: #ffffff; z-index: 20000; box-sizing: border-box;">
+    <div style="display: table; width: 100%; height: 100%;">
+        <div style="display: table-cell; vertical-align: middle; text-align: center;">
+            <div id="toast-text" style="font-size: 110px; font-weight: bold; letter-spacing: 5px; white-space: nowrap; display: inline-block; color: #ffffff;">
+                记录完成
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
